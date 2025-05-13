@@ -16,7 +16,8 @@ const pool = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0
 });
-
+const path = require('path'); // 引入path模块处理路径
+app.use(express.static(path.join(__dirname, 'public'))); // 静态资源存放在static目录
 // 解析 JSON 数据
 app.use(bodyParser.json());
 // 解析表单数据
