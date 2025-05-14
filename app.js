@@ -1,71 +1,41 @@
+
+//载入需要的模块
 const express = require('express');
 const bodyParser = require('body-parser');
-const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const mysql = require('mysql2/promise');
+const path = require('path');
 const app = express();
-const secretKey = 'yourSecretKey';
+const secretKey = 'klajdfnkjdfnvnr'; 
 
-// 创建数据库连接池
-const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: 'root',
-    database: 'learnsystem',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
-const path = require('path'); // 引入path模块处理路径
-app.use(express.static(path.join(__dirname, 'public'))); // 静态资源存放在static目录
-// 解析 JSON 数据
-app.use(bodyParser.json());
-// 解析表单数据
-app.use(bodyParser.urlencoded({ extended: true }));
-// 解析 Cookie
-app.use(cookieParser());
-// 设置视图引擎为 EJS
+// ✅ 引入全局中间件,数据库,jwt验证
+const pool = require('./global/mysqldb');
+const authMiddleware = require('./global/jwt_verify')(secretKey);
+
+// 设置静态资源目录,设置esj,ejs位置
+app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
-// 设置视图文件的目录
 app.set('views', './views');
 
-// 全局中间件，用于检查 JWT 令牌
-const checkLogin = (req, res, next) => {
-    const token = req.cookies.token;
-    console.log('Received token:', token);
+// 解析请求体
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-    if (!token) {
-        console.log('No token provided, redirecting to login');
-        return res.redirect('/login');
-    }
+// 解析 Cookie
+app.use(cookieParser());
 
-    jwt.verify(token, secretKey, (err, decoded) => {
-        if (err) {
-            console.log('Token verification failed:', err.name, err.message);
-            return res.redirect('/login');
-        }
-        console.log('Token verified successfully:', decoded);
-        req.user = decoded;
-        next();
-    });
-};
 
-// 引入并挂载路由模块
-const studentRouter = require('./Student/student.js');
-const adminerRouter = require('./Adminer/admin.js');
-const teacherRouter = require('./Teacher/teacher.js');
-const loginRouter = require('./Login_verify/login.js')(pool, secretKey);
-
-// 登录路由不需要进行登录验证
+// 路由引入并挂载
+const loginRouter = require('./Login_verify/login')(secretKey);
+const studentRouter = require('./Student/student');
+const adminerRouter = require('./Adminer/admin');
+const teacherRouter = require('./Teacher/teacher');
 app.use('/login', loginRouter);
-
-// 其他路由需要进行登录验证
-app.use(checkLogin);
+app.use(authMiddleware); 
 app.use('/student', studentRouter);
 app.use('/admin', adminerRouter);
 app.use('/teacher', teacherRouter);
 
-// 定义首页路由
+// 首页重定向到登录
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
@@ -75,4 +45,3 @@ const port = 3000;
 app.listen(port, () => {
     console.log(`服务器运行中：http://localhost:${port}`);
 });
-    
